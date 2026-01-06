@@ -2,13 +2,16 @@
   "name": "gdrive-folder-downloader",
   "version": "1.0.0",
   "description": "Cross-platform Google Drive folder downloader with scheduling",
-  "main": "src/index.js",
+  "main": "electron.js",
   "scripts": {
     "start": "node src/index.js",
     "download": "node src/index.js download",
     "schedule": "node src/index.js schedule",
     "setup": "node src/index.js setup",
-    "web": "node src/server.js"
+    "web": "node src/server.js",
+    "electron": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win --x64"
   },
   "keywords": [
     "google-drive",
@@ -33,7 +36,35 @@
     "winston": "^3.11.0"
   },
   "devDependencies": {
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12",
     "pkg": "^5.8.1"
+  },
+  "build": {
+    "appId": "com.gdrive.downloader",
+    "productName": "Google Drive Downloader",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron.js",
+      "src/**/*",
+      "public/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    }
   },
   "bin": {
     "gdrive-downloader": "./src/index.js"
