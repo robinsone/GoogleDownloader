@@ -1,98 +1,90 @@
 # Google Drive Folder Downloader
 
-A Node.js utility to automatically download files from **public** Google Drive folders on a schedule or on-demand.
+A desktop application to automatically download files from **public** Google Drive folders with scheduling capabilities.
 
 ## Features
 
-- ✅ Download from public Google Drive folders (no authentication needed)
-- ✅ Run on schedule (cron-based)
-- ✅ On-demand downloads
-- ✅ Filter by file extension (default: . zip files)
-- ✅ Retry logic for failed downloads
-- ✅ Comprehensive logging
-- ✅ Windows compatible (can be extended to other platforms)
+- 📁 Download from public Google Drive folders (no authentication needed)
+- 🖥️ Desktop application with user-friendly interface
+- ⏰ Automatic scheduling with cron expressions
+- 📦 Automatic ZIP extraction to destination folder
+- 🔄 Downloads only the latest version from folder
+- 📊 Real-time progress tracking
+- 📋 Live activity logs
+- 💾 Persistent configuration
 
-## Prerequisites
+## Download & Installation
 
-1. **Node.js** (v16 or higher)
-2. **Public Google Drive folder** (shared with "Anyone with the link")
+### Option 1: Download Pre-built Executable (Recommended)
 
-## Setup Instructions
+1. Go to [Releases](https://github.com/robinsone/GoogleDownloader/releases)
+2. Download the latest `Google Drive Downloader.exe`
+3. Run the executable - no installation required!
 
-### 1. Install Dependencies
+**Note:** Windows may show a security warning because the app is not signed. Click "More info" → "Run anyway"
+
+### Option 2: Run from Source
+
+If you have Node.js installed:
 
 ```bash
+git clone https://github.com/robinsone/GoogleDownloader.git
+cd GoogleDownloader
 npm install
+npm run electron
 ```
 
-### 2. Make Your Google Drive Folder Public
+## Getting Started
+
+### 1. Make Your Google Drive Folder Public
 
 1. Open your folder in Google Drive
 2. Click the "Share" button
 3. Change access to "Anyone with the link" → "Viewer"
-4. Copy the folder ID from the URL: 
+4. Copy the **folder ID** from the URL:
    ```
    https://drive.google.com/drive/folders/YOUR_FOLDER_ID_HERE
    ```
 
-### 3. Run Setup
+### 2. Configure the Application
 
-```bash
-npm run setup
-```
+When you first launch the app:
 
-This will prompt you for:
-- **Folder ID**: The ID from your Google Drive folder URL
-- **Download Path**: Where to save downloaded files
-- **Schedule**: When to run automatic downloads (cron format)
-- **Overwrite Existing**: Whether to re-download existing files
-- **API Key** (Optional): For higher rate limits
+1. **Google Drive Folder ID**: Paste the folder ID you copied
+2. **Download Destination Path**: Where files will be extracted (e.g., `C:\Games\WoW\Interface\AddOns`)
+3. **Cron Schedule**: When to automatically check for updates (e.g., `0 9 * * *` for 9 AM daily)
+4. **Overwrite existing files**: Check this to always get the latest version
 
-## Usage
+Click **Save Configuration** to store your settings.
 
-### Web Interface (Recommended)
+## How to Use
 
-Start the web interface for easy configuration and monitoring:
+### Manual Download
 
-```bash
-npm run web
-```
+Click **Download Now** to immediately download and extract the latest file from your Google Drive folder.
 
-Then open your browser to `http://localhost:3000`
+The app will:
+1. Connect to your public Google Drive folder
+2. Find the latest version (by version number in filename)
+3. Download the file
+4. Extract the contents to your destination folder
+5. Delete the temporary ZIP file
 
-**Features:**
-- 🎯 Real-time status monitoring
-- ⚙️ Visual configuration editor
-- 📥 One-click manual downloads
-- ⏰ Scheduler control
-- 📊 Live download progress
-- 📋 Activity log viewer
+### Automatic Scheduling
 
-### On-Demand Download
+1. Click **Start Scheduler** to enable automatic downloads
+2. The app will check your folder according to the schedule you set
+3. Click **Stop Scheduler** to disable automatic downloads
 
-Download files immediately via command line: 
+### Activity Log
 
-```bash
-npm run download
-```
+Click on **📋 Activity Log** to expand the log viewer and see:
+- Download progress
+- File extraction status
+- Any errors or warnings
+- Schedule execution times
 
-### Scheduled Downloads
-
-Start the scheduler to run downloads automatically:
-
-```bash
-npm run schedule
-```
-
-The scheduler will run in the background according to your cron schedule.
-
-### View Configuration
-
-```bash
-npm start config
-```
-
-### Schedule Format (Cron)
+## Schedule Format (Cron)
 
 ```
 * * * * *
@@ -104,100 +96,62 @@ npm start config
 └─────────── Minute (0-59)
 ```
 
-**Examples:**
+**Common Examples:**
 - `0 9 * * *` - Every day at 9:00 AM
 - `0 */6 * * *` - Every 6 hours
+- `0 4 * * *` - Every day at 4:00 AM
 - `0 0 * * 1` - Every Monday at midnight
-- `30 14 * * *` - Every day at 2:30 PM
 
-## Configuration File
+## Use Cases
 
-Located at `config/config.json`:
+### World of Warcraft AddOn Updates
 
-```json
-{
-  "driveFolderId": "your-folder-id",
-  "downloadPath": "C:\\Users\\YourName\\Downloads",
-  "schedule":  "0 9 * * *",
-  "overwriteExisting": true,
-  "fileExtensions": [".zip"],
-  "maxRetries": 3,
-  "apiKey": ""
-}
-```
+Perfect for automatically updating WoW addons from shared Google Drive folders:
 
-### Optional:  Google API Key
+1. Set **Folder ID** to your addon developer's public folder
+2. Set **Destination Path** to `C:\Program Files (x86)\World of Warcraft\_retail_\Interface\AddOns`
+3. Set schedule to check daily: `0 9 * * *`
+4. Enable **Start Scheduler**
 
-For higher rate limits, you can create a free API key:
+Your addons will automatically update every morning!
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project
-3. Enable **Google Drive API**
-4. Go to "Credentials" → "Create Credentials" → "API Key"
-5. Copy the key and add it to your config
+### Any Regular File Updates
 
-Without an API key, you're limited to ~100 requests per 100 seconds per user.
-
-## Running as Windows Service
-
-To run the scheduler as a Windows service (runs at startup, background):
-
-### Option 1: Using NSSM (Recommended)
-
-1. Download [NSSM](https://nssm.cc/download)
-2. Open Command Prompt as Administrator
-3. Run: 
-```cmd
-nssm install GDriveDownloader "C:\Program Files\nodejs\node.exe" "C:\path\to\project\src\index.js" schedule
-nssm set GDriveDownloader AppDirectory "C:\path\to\project"
-nssm start GDriveDownloader
-```
-
-### Option 2: Using Task Scheduler
-
-1. Open Windows Task Scheduler
-2. Create Basic Task
-3. Set trigger (e.g., "At startup")
-4. Action: Start a program
-5. Program: `node`
-6. Arguments: `"C:\path\to\project\src\index.js" schedule`
-7. Start in: `C:\path\to\project`
-
-## Building Executable
-
-To create a standalone executable:
-
-```bash
-npm install -g pkg
-pkg package.json
-```
-
-This creates `dist/gdrive-downloader.exe` that can run without Node.js installed.
-
-## Logging
-
-Logs are stored in `logs/`:
-- `app.log` - All logs
-- `error.log` - Error logs only
+Use this for any scenario where files are regularly updated in a Google Drive folder:
+- Game mods
+- Shared documents
+- Software updates
+- Backup restores
 
 ## Troubleshooting
 
 ### "Folder not found or not accessible"
-- Make sure the folder ID is correct
-- Verify the folder is set to "Anyone with the link" can view
-- Check that the folder isn't empty
+- Verify the folder ID is correct
+- Make sure the folder is set to "Anyone with the link" can view
+- Check that the folder contains files
 
-### "Access denied"
-- The folder must be publicly accessible
-- Go to Share settings and set to "Anyone with the link"
+### Download Fails
+- Check your internet connection
+- Verify the Google Drive folder is still accessible
+- Look at the Activity Log for specific error messages
 
-### Files not downloading
-- Check that folder ID is correct
-- Verify folder has files matching your extension filter
-- Check logs in `logs/app.log`
+### Files Not Extracting
+- Ensure the downloaded file is a valid ZIP archive
+- Check that you have write permissions to the destination folder
+- Make sure the destination path exists
 
-### Rate limiting errors
-- Add a Google API key to your config for higher limits
+### Windows SmartScreen Warning
+This is normal for unsigned applications. The app is safe to run - just click "More info" → "Run anyway"
+
+## Configuration Storage
+
+Your settings are stored in:
+- **Packaged App**: `%APPDATA%\gdrive-folder-downloader\config\config.json`
+- **From Source**: `<project-folder>\config\config.json`
+
+## Support
+
+Found a bug or have a feature request? [Open an issue](https://github.com/robinsone/GoogleDownloader/issues)
 - Reduce the number of files or frequency of downloads
 - Add delays between downloads (will implement if needed)
 
@@ -223,7 +177,3 @@ Logs are stored in `logs/`:
 - Only works with **public folders** (no private folder access)
 - Subject to Google's API rate limits (100 requests/100 seconds without API key)
 - Large files may take time to download
-
-## License
-
-ISC
