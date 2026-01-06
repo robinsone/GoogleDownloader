@@ -162,7 +162,7 @@ Found a bug or have a feature request? [Open an issue](https://github.com/robins
 
 ## Security Notes
 
-✅ **No authentication required** - Works with public folders only
+✅ **No authentication required** - Works with public folders only<br>
 ✅ **No sensitive credentials** - Optional API key can be regenerated anytime
 
 ## How It Works
