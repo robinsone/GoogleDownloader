@@ -2,6 +2,8 @@
 
 A desktop application to automatically download files from **public** Google Drive folders with scheduling capabilities.
 
+<img width="1186" height="646" alt="image" src="https://github.com/user-attachments/assets/12605d6d-bfb5-408d-b7f2-551d8a688d66" />
+
 ## Features
 
 - 📁 Download from public Google Drive folders (no authentication needed)
