@@ -1,9 +1,19 @@
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
 
 let mainWindow;
-let serverProcess;
+let server;
+
+function startServer() {
+  // Set environment variable to indicate we're running in Electron
+  process.env.ELECTRON = 'true';
+
+  // Require and start the server directly
+  // This works because Electron includes Node.js
+  require('./src/server.js');
+
+  console.log('Express server started in Electron');
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -14,20 +24,6 @@ function createWindow() {
       contextIsolation: true
     },
     icon: path.join(__dirname, 'build', 'icon.ico')
-  });
-
-  // Start the Express server
-  serverProcess = spawn('node', [path.join(__dirname, 'src', 'server.js')], {
-    cwd: __dirname,
-    env: { ...process.env, ELECTRON: 'true' }
-  });
-
-  serverProcess.stdout.on('data', (data) => {
-    console.log(`Server: ${data}`);
-  });
-
-  serverProcess.stderr.on('data', (data) => {
-    console.error(`Server Error: ${data}`);
   });
 
   // Wait for server to start, then load the UI
@@ -43,13 +39,12 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  startServer();
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
-  // Kill the server process
-  if (serverProcess) {
-    serverProcess.kill();
-  }
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -58,11 +53,5 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (mainWindow === null) {
     createWindow();
-  }
-});
-
-app.on('before-quit', () => {
-  if (serverProcess) {
-    serverProcess.kill();
   }
 });

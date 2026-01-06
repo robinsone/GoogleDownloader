@@ -1,7 +1,20 @@
 const fs = require('fs-extra');
 const path = require('path');
 
-const CONFIG_DIR = path.join(__dirname, '../config');
+// Detect if running in Electron
+const isElectron = process.env.ELECTRON === 'true' || process.versions.electron;
+
+// Use appropriate config directory
+let CONFIG_DIR;
+if (isElectron) {
+  // In Electron, use userData directory (writable location)
+  const { app } = require('electron');
+  CONFIG_DIR = path.join(app.getPath('userData'), 'config');
+} else {
+  // In regular Node.js, use project directory
+  CONFIG_DIR = path.join(__dirname, '../config');
+}
+
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
 const DEFAULT_CONFIG = {
