@@ -34,12 +34,12 @@ jobs:
         shell: pwsh
       
       - name: Create Release
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           files: |
             dist/Google Drive Downloader ${{ steps.package-version.outputs.version }}.exe
-          draft: false
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', steps.package-version.outputs.version) || github.ref_name }}
+          draft: ${{ github.event_name == 'workflow_dispatch' }}
           prerelease: false
           generate_release_notes: true
           body: |
@@ -55,7 +55,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Upload unsigned artifact (for manual testing)
+      - name: Upload artifact for manual testing
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
