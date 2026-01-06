@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Drive Downloader</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <h1>📁 Google Drive Downloader</h1>
+      <p class="subtitle">Download files from public Google Drive folders</p>
+    </header>
+
+    <div class="dashboard">
+      <!-- Status Overview -->
+      <section class="card">
+        <h2>📊 Status Overview</h2>
+        <div class="status-grid">
+          <div class="status-item">
+            <span class="label">Scheduler:</span>
+            <span id="schedulerStatus" class="status-badge status-inactive">Inactive</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Download:</span>
+            <span id="downloadStatus" class="status-badge status-idle">Idle</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Actions -->
+      <section class="card">
+        <h2>⚡ Quick Actions</h2>
+        <div class="actions">
+          <button id="downloadBtn" class="btn btn-primary">
+            <span class="btn-icon">⬇️</span>
+            Download Now
+          </button>
+          <button id="startSchedulerBtn" class="btn btn-success">
+            <span class="btn-icon">▶️</span>
+            Start Scheduler
+          </button>
+          <button id="stopSchedulerBtn" class="btn btn-danger" disabled>
+            <span class="btn-icon">⏹️</span>
+            Stop Scheduler
+          </button>
+        </div>
+      </section>
+
+      <!-- Download Progress -->
+      <section class="card" id="progressSection" style="display: none;">
+        <h2>📥 Download Progress</h2>
+        <div class="progress-container">
+          <div class="progress-info">
+            <span id="progressText">Preparing...</span>
+            <span id="progressCount">0 / 0</span>
+          </div>
+          <div class="progress-bar">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+          <div id="currentFile" class="current-file"></div>
+        </div>
+      </section>
+
+      <!-- Configuration -->
+      <section class="card">
+        <h2>⚙️ Configuration</h2>
+        <form id="configForm">
+          <div class="form-group">
+            <label for="driveFolderId">
+              Google Drive Folder ID
+              <span class="help-text">From the folder URL:
+                drive.google.com/drive/folders/<strong>YOUR_ID_HERE</strong></span>
+            </label>
+            <input type="text" id="driveFolderId" name="driveFolderId" required>
+          </div>
+
+          <div class="form-group">
+            <label for="downloadPath">
+              Download Destination Path
+              <span class="help-text">Where files will be saved on your system</span>
+            </label>
+            <input type="text" id="downloadPath" name="downloadPath" required>
+          </div>
+
+          <div class="form-group">
+            <label for="schedule">
+              Cron Schedule
+              <span class="help-text">Examples: "0 9 * * *" (9 AM daily), "0 */6 * * *" (every 6 hours)</span>
+            </label>
+            <input type="text" id="schedule" name="schedule" placeholder="0 9 * * *" required>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="overwriteExisting" name="overwriteExisting">
+              <span>Overwrite existing files</span>
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-primary">
+            <span class="btn-icon">💾</span>
+            Save Configuration
+          </button>
+        </form>
+      </section>
+
+      <!-- Activity Log -->
+      <section class="card">
+        <div class="log-header" id="logHeader" style="cursor: pointer;">
+          <h2 style="display: inline-block; margin: 0;">📋 Activity Log</h2>
+          <span id="logToggle" style="float: right; font-size: 1.2em;">▼</span>
+        </div>
+        <div id="logSection" style="display: none; margin-top: 1em;">
+          <div class="log-controls">
+            <button id="refreshLogsBtn" class="btn btn-secondary btn-small">
+              🔄 Refresh
+            </button>
+            <button id="clearLogsBtn" class="btn btn-secondary btn-small">
+              🗑️ Clear Display
+            </button>
+          </div>
+          <div id="logContainer" class="log-container">
+            <p class="log-empty">No logs available. Click "Refresh" to load recent logs.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      <p>Google Drive Downloader v1.0.0 | <a href="https://github.com" target="_blank">Documentation</a></p>
+    </footer>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>

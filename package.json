@@ -1,0 +1,48 @@
+{
+  "name": "gdrive-folder-downloader",
+  "version": "1.0.0",
+  "description": "Cross-platform Google Drive folder downloader with scheduling",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "download": "node src/index.js download",
+    "schedule": "node src/index.js schedule",
+    "setup": "node src/index.js setup",
+    "web": "node src/server.js"
+  },
+  "keywords": [
+    "google-drive",
+    "downloader",
+    "scheduler"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "axios": "^1.6.2",
+    "cheerio": "^1.0.0-rc.12",
+    "commander": "^11.1.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "fs-extra": "^11.2.0",
+    "google-drive-getfilelist": "^1.0.5",
+    "googleapis": "^169.0.0",
+    "inquirer": "^8.2.5",
+    "node-cron": "^3.0.3",
+    "socket.io": "^4.6.1",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  },
+  "bin": {
+    "gdrive-downloader": "./src/index.js"
+  },
+  "pkg": {
+    "scripts": "src/**/*.js",
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
+  }
+}

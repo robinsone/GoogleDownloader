@@ -1,0 +1,11 @@
+{
+  "driveFolderId": "15hxXi6H0lq-QNVaGqwpaBFR2zftEgRbC",
+  "downloadPath": "C:\\Users\\ericz\\OneDrive\\Github\\GoogleDownloader\\downloads",
+  "schedule": "0 4 * * *",
+  "overwriteExisting": true,
+  "apiKey": "",
+  "fileExtensions": [
+    ".zip"
+  ],
+  "maxRetries": 3
+}
