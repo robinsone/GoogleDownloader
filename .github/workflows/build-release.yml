@@ -194,8 +194,6 @@ jobs:
           prerelease: false
           fail_on_unmatched_files: true
           body: |
-            ## 📦 Google Drive Downloader v${{ steps.version.outputs.number }}
-            
             A cross-platform desktop application for automatically downloading files from **public** Google Drive folders with scheduling capabilities.
             
             ---
