@@ -131,7 +131,7 @@ jobs:
                   $hash = $parts[1]
                   $author = $parts[2]
                   
-                  $line = "- $message ([\`$hash\`](https://github.com/${{ github.repository }}/commit/$hash))"
+                  $line = "- $message ([``$hash``](https://github.com/${{ github.repository }}/commit/$hash))"
                   
                   if ($message -match '^feat(\(.*?\))?:|^feature:') {
                     $features += $line
@@ -175,9 +175,11 @@ jobs:
             $changelog = "#### 🎉 Initial Release`n`nFirst official release of Google Drive Downloader!`n"
           }
           
-          # Escape for GitHub Actions
-          $changelog = $changelog -replace "`r`n", "%0A" -replace "`n", "%0A"
-          echo "content=$changelog" >> $env:GITHUB_OUTPUT
+          # Use multiline string output for GitHub Actions
+          $delimiter = "EOF_CHANGELOG_$(Get-Random)"
+          echo "content<<$delimiter" >> $env:GITHUB_OUTPUT
+          echo $changelog >> $env:GITHUB_OUTPUT
+          echo "$delimiter" >> $env:GITHUB_OUTPUT
         shell: pwsh
       
       - name: Create GitHub Release
