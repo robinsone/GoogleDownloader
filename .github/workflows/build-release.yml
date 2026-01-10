@@ -39,10 +39,25 @@ jobs:
       - name: Generate Changelog
         id: changelog
         run: |
+          $ErrorActionPreference = "Continue"
           $currentTag = "${{ github.ref_name }}"
           
-          # Get the previous tag
-          $previousTag = git describe --tags --abbrev=0 "$currentTag^" 2>$null
+          # Get all tags sorted by creation date
+          $allTags = git tag --sort=-creatordate
+          $tagArray = $allTags -split "`n" | Where-Object { $_ -ne "" }
+          
+          # Find the previous tag (the one before current)
+          $previousTag = $null
+          $foundCurrent = $false
+          foreach ($tag in $tagArray) {
+            if ($foundCurrent) {
+              $previousTag = $tag
+              break
+            }
+            if ($tag -eq $currentTag) {
+              $foundCurrent = $true
+            }
+          }
           
           if ($previousTag) {
             Write-Host "Generating changelog from $previousTag to $currentTag"
@@ -99,7 +114,7 @@ jobs:
             }
             
             if ($changelog -eq "") {
-              $changelog = "### 📝 Changes`n`nFirst release or no categorized changes.`n`n"
+              $changelog = "### 📝 Changes`n`nMinor updates and improvements.`n`n"
             }
           } else {
             Write-Host "No previous tag found - this is the first release"
