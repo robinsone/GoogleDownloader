@@ -43,6 +43,7 @@
   "build": {
     "appId": "com.gdrive.downloader",
     "productName": "Google Drive Downloader",
+    "artifactName": "Google Drive Downloader ${version}.${ext}",
     "directories": {
       "output": "dist"
     },

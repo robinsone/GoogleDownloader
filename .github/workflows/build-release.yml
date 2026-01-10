@@ -36,6 +36,81 @@ jobs:
           echo "version=$version" >> $env:GITHUB_OUTPUT
         shell: pwsh
       
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          $currentTag = "${{ github.ref_name }}"
+          
+          # Get the previous tag
+          $previousTag = git describe --tags --abbrev=0 "$currentTag^" 2>$null
+          
+          if ($previousTag) {
+            Write-Host "Generating changelog from $previousTag to $currentTag"
+            
+            # Get commits between tags, grouped by type
+            $commits = git log "$previousTag..$currentTag" --pretty=format:"%s|%h" --no-merges
+            
+            $features = @()
+            $fixes = @()
+            $changes = @()
+            $other = @()
+            
+            foreach ($commit in $commits) {
+              if ($commit) {
+                $parts = $commit -split '\|'
+                $message = $parts[0]
+                $hash = $parts[1]
+                
+                $line = "- $message ([$hash](https://github.com/${{ github.repository }}/commit/$hash))"
+                
+                if ($message -match '^feat(\(.*?\))?:|^feature:') {
+                  $features += $line
+                } elseif ($message -match '^fix(\(.*?\))?:|^bugfix:') {
+                  $fixes += $line
+                } elseif ($message -match '^chore(\(.*?\))?:|^docs(\(.*?\))?:|^style(\(.*?\))?:|^refactor(\(.*?\))?:') {
+                  $changes += $line
+                } else {
+                  $other += $line
+                }
+              }
+            }
+            
+            # Build changelog sections
+            $changelog = ""
+            
+            if ($features.Count -gt 0) {
+              $changelog += "### ✨ New Features`n`n"
+              $changelog += ($features -join "`n") + "`n`n"
+            }
+            
+            if ($fixes.Count -gt 0) {
+              $changelog += "### 🐛 Bug Fixes`n`n"
+              $changelog += ($fixes -join "`n") + "`n`n"
+            }
+            
+            if ($changes.Count -gt 0) {
+              $changelog += "### 🔧 Maintenance & Improvements`n`n"
+              $changelog += ($changes -join "`n") + "`n`n"
+            }
+            
+            if ($other.Count -gt 0) {
+              $changelog += "### 📝 Other Changes`n`n"
+              $changelog += ($other -join "`n") + "`n`n"
+            }
+            
+            if ($changelog -eq "") {
+              $changelog = "### 📝 Changes`n`nFirst release or no categorized changes.`n`n"
+            }
+          } else {
+            Write-Host "No previous tag found - this is the first release"
+            $changelog = "### 🎉 Initial Release`n`nFirst official release of Google Drive Downloader!`n`n"
+          }
+          
+          # Escape for GitHub Actions (replace newlines with %0A)
+          $changelog = $changelog -replace "`r`n", "%0A" -replace "`n", "%0A"
+          echo "content=$changelog" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+      
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -44,17 +119,39 @@ jobs:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', steps.package-version.outputs.version) || github.ref_name }}
           draft: ${{ github.event_name == 'workflow_dispatch' }}
           prerelease: false
-          generate_release_notes: true
           body: |
             ## 📦 Google Drive Downloader v${{ steps.package-version.outputs.version }}
             
-            ### Installation
-            1. Download `Google Drive Downloader ${{ steps.package-version.outputs.version }}.exe`
-            2. Run the executable (no installation required)
-            3. Windows may show a security warning - click "More info" → "Run anyway"
+            A desktop application to automatically download files from **public** Google Drive folders with scheduling capabilities.
             
-            ### What's Changed
-            See below for detailed changelog.
+            ### ⬇️ Installation
+            
+            1. Download **`Google Drive Downloader ${{ steps.package-version.outputs.version }}.exe`** below
+            2. Run the executable - **no installation required!**
+            3. If Windows shows a security warning, click **"More info"** → **"Run anyway"**
+            
+            ### ✨ Features
+            
+            - 📁 Download from public Google Drive folders (no authentication needed)
+            - 🖥️ Desktop application with user-friendly interface
+            - ⏰ Automatic scheduling with cron expressions
+            - 📦 Optional automatic ZIP extraction
+            - 🔄 Download all files or just the latest version
+            - 📊 Real-time progress tracking
+            - 📋 Live activity logs
+            - 💾 Persistent configuration
+            
+            ---
+            
+            ## 📝 Changelog
+            
+            ${{ steps.changelog.outputs.content }}
+            
+            ---
+            
+            ### 🐛 Bug Reports & Feature Requests
+            
+            Found an issue or have a suggestion? [Open an issue](https://github.com/robinsone/GoogleDownloader/issues/new)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
