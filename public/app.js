@@ -213,6 +213,8 @@ function populateConfigForm(config) {
   document.getElementById('downloadPath').value = config.downloadPath || '';
   document.getElementById('schedule').value = config.schedule || '0 9 * * *';
   document.getElementById('overwriteExisting').checked = config.overwriteExisting || false;
+  document.getElementById('downloadLatestOnly').checked = config.downloadLatestOnly !== undefined ? config.downloadLatestOnly : true;
+  document.getElementById('autoExtractZip').checked = config.autoExtractZip !== undefined ? config.autoExtractZip : true;
 }
 
 function displayLogs(logs) {
@@ -350,6 +352,8 @@ configForm.addEventListener('submit', (e) => {
     downloadPath: formData.get('downloadPath'),
     schedule: formData.get('schedule'),
     overwriteExisting: formData.get('overwriteExisting') === 'on',
+    downloadLatestOnly: formData.get('downloadLatestOnly') === 'on',
+    autoExtractZip: formData.get('autoExtractZip') === 'on',
     apiKey: formData.get('apiKey') || ''
   };
 

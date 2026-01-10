@@ -3,6 +3,8 @@
   "downloadPath": "C:\\Users\\ericz\\OneDrive\\Github\\GoogleDownloader\\downloads",
   "schedule": "0 4 * * *",
   "overwriteExisting": true,
+  "downloadLatestOnly": true,
+  "autoExtractZip": true,
   "apiKey": "",
   "fileExtensions": [
     ".zip"

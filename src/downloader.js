@@ -336,22 +336,31 @@ class DriveDownloader {
           });
 
           writer.on('finish', async () => {
-            // After download completes, extract the zip file
-            try {
-              logger.info(`Extracting ${fileName}...`);
-              const zip = new AdmZip(dest);
-              zip.extractAllTo(destPath, true); // true = overwrite existing files
-              logger.info(`✓ Extracted ${fileName} to ${destPath}`);
+            // Check if auto-extraction is enabled
+            const autoExtractZip = config.get('autoExtractZip') !== false; // Default to true
+            const isZipFile = path.extname(fileName).toLowerCase() === '.zip';
 
-              // Delete the zip file after extraction
-              fs.unlinkSync(dest);
-              logger.info(`✓ Deleted zip file: ${fileName}`);
+            if (autoExtractZip && isZipFile) {
+              // After download completes, extract the zip file
+              try {
+                logger.info(`Extracting ${fileName}...`);
+                const zip = new AdmZip(dest);
+                zip.extractAllTo(destPath, true); // true = overwrite existing files
+                logger.info(`✓ Extracted ${fileName} to ${destPath}`);
 
-              resolve({ success: true, skipped: false, size: downloadedBytes, extracted: true });
-            } catch (extractError) {
-              logger.error(`Failed to extract ${fileName}:`, extractError.message);
-              // Still consider download successful even if extraction fails
-              resolve({ success: true, skipped: false, size: downloadedBytes, extracted: false });
+                // Delete the zip file after extraction
+                fs.unlinkSync(dest);
+                logger.info(`✓ Deleted zip file: ${fileName}`);
+
+                resolve({ success: true, skipped: false, size: downloadedBytes, extracted: true });
+              } catch (extractError) {
+                logger.error(`Failed to extract ${fileName}:`, extractError.message);
+                // Still consider download successful even if extraction fails
+                resolve({ success: true, skipped: false, size: downloadedBytes, extracted: false });
+              }
+            } else {
+              // Keep the file as-is without extraction
+              logger.info(`✓ Saved ${fileName} (extraction disabled)`);
             }
           });
 
@@ -408,63 +417,74 @@ class DriveDownloader {
         logger.info(`  ${idx + 1}. ${file.name} (modified: ${file.modifiedTime || 'unknown'})`);
       });
 
-      // Sort files by modified time (newest first) and take only the latest
-      // If no modifiedTime, try to extract version from filename, otherwise use alphabetical order
-      files.sort((a, b) => {
-        // First try sorting by modifiedTime if available
-        if (a.modifiedTime && b.modifiedTime) {
-          const dateA = new Date(a.modifiedTime);
-          const dateB = new Date(b.modifiedTime);
-          return dateB - dateA; // Descending order (newest first)
-        }
+      // Check if we should download all files or just the latest
+      const downloadLatestOnly = config.get('downloadLatestOnly') !== false; // Default to true
 
-        // Fallback: Try to extract version numbers from filename (e.g., "1.78", "1.77")
-        const versionRegex = /(\d+\.?\d*)/g;
-        const versionsA = a.name.match(versionRegex);
-        const versionsB = b.name.match(versionRegex);
+      let filesToDownload = files;
 
-        if (versionsA && versionsB) {
-          // Compare version numbers (last number found in filename)
-          const versionA = parseFloat(versionsA[versionsA.length - 1]);
-          const versionB = parseFloat(versionsB[versionsB.length - 1]);
-          if (!isNaN(versionA) && !isNaN(versionB)) {
-            return versionB - versionA; // Descending order (highest version first)
+      if (downloadLatestOnly) {
+        // Sort files by modified time (newest first) and take only the latest
+        // If no modifiedTime, try to extract version from filename, otherwise use alphabetical order
+        files.sort((a, b) => {
+          // First try sorting by modifiedTime if available
+          if (a.modifiedTime && b.modifiedTime) {
+            const dateA = new Date(a.modifiedTime);
+            const dateB = new Date(b.modifiedTime);
+            return dateB - dateA; // Descending order (newest first)
           }
-        }
 
-        // Final fallback: alphabetical descending (Z to A)
-        return b.name.localeCompare(a.name);
-      });
+          // Fallback: Try to extract version numbers from filename (e.g., "1.78", "1.77")
+          const versionRegex = /(\d+\.?\d*)/g;
+          const versionsA = a.name.match(versionRegex);
+          const versionsB = b.name.match(versionRegex);
 
-      const latestFile = files[0];
-      logger.info(`Determined latest file: ${latestFile.name}`);
+          if (versionsA && versionsB) {
+            // Compare version numbers (last number found in filename)
+            const versionA = parseFloat(versionsA[versionsA.length - 1]);
+            const versionB = parseFloat(versionsB[versionsB.length - 1]);
+            if (!isNaN(versionA) && !isNaN(versionB)) {
+              return versionB - versionA; // Descending order (highest version first)
+            }
+          }
+
+          // Final fallback: alphabetical descending (Z to A)
+          return b.name.localeCompare(a.name);
+        });
+
+        filesToDownload = [files[0]];
+        logger.info(`Download mode: Latest file only - ${filesToDownload[0].name}`);
+      } else {
+        logger.info(`Download mode: All files (${filesToDownload.length} files)`);
+      }
 
       // Emit initial progress
-      this.emitProgress({ total: 1, completed: 0 });
+      this.emitProgress({ total: filesToDownload.length, completed: 0 });
 
       const results = {
-        total: 1,
+        total: filesToDownload.length,
         successful: 0,
         failed: 0,
         skipped: 0,
         totalSize: 0
       };
 
-      this.emitProgress({ current: latestFile.name });
-      const result = await this.downloadFile(latestFile.id, latestFile.name, downloadPath);
+      for (const file of filesToDownload) {
+        this.emitProgress({ current: file.name });
+        const result = await this.downloadFile(file.id, file.name, downloadPath);
 
-      if (result.success) {
-        if (result.skipped) {
-          results.skipped++;
+        if (result.success) {
+          if (result.skipped) {
+            results.skipped++;
+          } else {
+            results.successful++;
+            results.totalSize += result.size || 0;
+          }
         } else {
-          results.successful++;
-          results.totalSize += result.size || 0;
+          results.failed++;
         }
-      } else {
-        results.failed++;
-      }
 
-      this.emitProgress({ completed: results.successful + results.skipped });
+        this.emitProgress({ completed: results.successful + results.skipped });
+      }
 
       logger.info('='.repeat(50));
       logger.info('Download Summary:');
