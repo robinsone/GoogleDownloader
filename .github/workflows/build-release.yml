@@ -3,53 +3,95 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'  # Triggers on version tags like v1.0.0
-  workflow_dispatch:  # Allows manual trigger
+      - 'v*.*.*'  # Triggers on semantic version tags like v1.0.0
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
 
 permissions:
-  contents: write
+  contents: write  # Required for creating releases
 
 jobs:
-  build:
+  build-and-release:
+    name: Build Windows Executable and Create Release
     runs-on: windows-latest
     
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history and tags for changelog generation
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'  # Use LTS version
           cache: 'npm'
       
       - name: Install dependencies
         run: npm ci
       
-      - name: Build Electron app
-        run: npm run build:win
-      
       - name: Get version from package.json
-        id: package-version
+        id: version
         run: |
           $version = (Get-Content package.json | ConvertFrom-Json).version
-          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "number=$version" >> $env:GITHUB_OUTPUT
         shell: pwsh
       
-      - name: Generate Changelog
+      - name: Validate version matches tag
+        if: github.event_name == 'push'
+        run: |
+          $packageVersion = "${{ steps.version.outputs.number }}"
+          $tagVersion = "${{ github.ref_name }}".TrimStart('v')
+          
+          if ($packageVersion -ne $tagVersion) {
+            Write-Error "Version mismatch: package.json has $packageVersion but tag is $tagVersion"
+            exit 1
+          }
+          Write-Host "✓ Version validation passed: $packageVersion"
+        shell: pwsh
+      
+      - name: Build Electron application
+        run: npm run build:win
+      
+      - name: Verify build output
+        id: verify
+        run: |
+          $expectedFile = "dist/Google Drive Downloader ${{ steps.version.outputs.number }}.exe"
+          if (-not (Test-Path $expectedFile)) {
+            Write-Error "Build failed: Expected file not found: $expectedFile"
+            Get-ChildItem dist -ErrorAction SilentlyContinue
+            exit 1
+          }
+          
+          $fileSize = (Get-Item $expectedFile).Length
+          $fileSizeMB = [math]::Round($fileSize / 1MB, 2)
+          Write-Host "✓ Build successful: $expectedFile ($fileSizeMB MB)"
+          echo "file_size=$fileSizeMB" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+      
+      - name: Generate SHA256 checksum
+        id: checksum
+        run: |
+          $file = "dist/Google Drive Downloader ${{ steps.version.outputs.number }}.exe"
+          $hash = (Get-FileHash -Path $file -Algorithm SHA256).Hash
+          echo "sha256=$hash" >> $env:GITHUB_OUTPUT
+          Write-Host "✓ SHA256: $hash"
+        shell: pwsh
+      
+      - name: Generate changelog
         id: changelog
         run: |
-          $ErrorActionPreference = "Continue"
           $currentTag = "${{ github.ref_name }}"
+          if ($currentTag -eq "") {
+            $currentTag = "v${{ steps.version.outputs.number }}"
+          }
           
-          # Get all tags sorted by creation date
-          $allTags = git tag --sort=-creatordate
-          $tagArray = $allTags -split "`n" | Where-Object { $_ -ne "" }
+          # Get all tags sorted by version
+          $allTags = git tag --sort=-version:refname | Where-Object { $_ -match '^v\d+\.\d+\.\d+$' }
           
-          # Find the previous tag (the one before current)
+          # Find the previous tag
           $previousTag = $null
           $foundCurrent = $false
-          foreach ($tag in $tagArray) {
+          foreach ($tag in $allTags) {
             if ($foundCurrent) {
               $previousTag = $tag
               break
@@ -59,120 +101,157 @@ jobs:
             }
           }
           
+          # Store previous tag for later use
+          if ($previousTag) {
+            echo "previous_tag=$previousTag" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "previous_tag=" >> $env:GITHUB_OUTPUT
+          }
+          
+          $changelog = ""
+          
           if ($previousTag) {
             Write-Host "Generating changelog from $previousTag to $currentTag"
             
-            # Get commits between tags, grouped by type
-            $commits = git log "$previousTag..$currentTag" --pretty=format:"%s|%h" --no-merges
+            # Get commits between tags
+            $commits = git log "$previousTag..$currentTag" --pretty=format:"%s|%h|%an" --no-merges
             
-            $features = @()
-            $fixes = @()
-            $changes = @()
-            $other = @()
-            
-            foreach ($commit in $commits) {
-              if ($commit) {
-                $parts = $commit -split '\|'
-                $message = $parts[0]
-                $hash = $parts[1]
-                
-                $line = "- $message ([$hash](https://github.com/${{ github.repository }}/commit/$hash))"
-                
-                if ($message -match '^feat(\(.*?\))?:|^feature:') {
-                  $features += $line
-                } elseif ($message -match '^fix(\(.*?\))?:|^bugfix:') {
-                  $fixes += $line
-                } elseif ($message -match '^chore(\(.*?\))?:|^docs(\(.*?\))?:|^style(\(.*?\))?:|^refactor(\(.*?\))?:') {
-                  $changes += $line
-                } else {
-                  $other += $line
+            if (-not $commits) {
+              $changelog = "No changes recorded between releases.`n"
+            } else {
+              $features = @()
+              $fixes = @()
+              $improvements = @()
+              $other = @()
+              
+              foreach ($commit in $commits) {
+                if ($commit) {
+                  $parts = $commit -split '\|'
+                  $message = $parts[0]
+                  $hash = $parts[1]
+                  $author = $parts[2]
+                  
+                  $line = "- $message ([\`$hash\`](https://github.com/${{ github.repository }}/commit/$hash))"
+                  
+                  if ($message -match '^feat(\(.*?\))?:|^feature:') {
+                    $features += $line
+                  } elseif ($message -match '^fix(\(.*?\))?:|^bugfix:') {
+                    $fixes += $line
+                  } elseif ($message -match '^chore(\(.*?\))?:|^docs(\(.*?\))?:|^style(\(.*?\))?:|^refactor(\(.*?\))?:|^perf(\(.*?\))?:') {
+                    $improvements += $line
+                  } else {
+                    $other += $line
+                  }
                 }
               }
-            }
-            
-            # Build changelog sections
-            $changelog = ""
-            
-            if ($features.Count -gt 0) {
-              $changelog += "### ✨ New Features`n`n"
-              $changelog += ($features -join "`n") + "`n`n"
-            }
-            
-            if ($fixes.Count -gt 0) {
-              $changelog += "### 🐛 Bug Fixes`n`n"
-              $changelog += ($fixes -join "`n") + "`n`n"
-            }
-            
-            if ($changes.Count -gt 0) {
-              $changelog += "### 🔧 Maintenance & Improvements`n`n"
-              $changelog += ($changes -join "`n") + "`n`n"
-            }
-            
-            if ($other.Count -gt 0) {
-              $changelog += "### 📝 Other Changes`n`n"
-              $changelog += ($other -join "`n") + "`n`n"
-            }
-            
-            if ($changelog -eq "") {
-              $changelog = "### 📝 Changes`n`nMinor updates and improvements.`n`n"
+              
+              # Build changelog sections
+              if ($features.Count -gt 0) {
+                $changelog += "#### ✨ New Features`n"
+                $changelog += ($features -join "`n") + "`n`n"
+              }
+              
+              if ($fixes.Count -gt 0) {
+                $changelog += "#### 🐛 Bug Fixes`n"
+                $changelog += ($fixes -join "`n") + "`n`n"
+              }
+              
+              if ($improvements.Count -gt 0) {
+                $changelog += "#### 🔧 Improvements`n"
+                $changelog += ($improvements -join "`n") + "`n`n"
+              }
+              
+              if ($other.Count -gt 0) {
+                $changelog += "#### 📝 Other Changes`n"
+                $changelog += ($other -join "`n") + "`n`n"
+              }
+              
+              if ($changelog -eq "") {
+                $changelog = "Minor updates and improvements.`n"
+              }
             }
           } else {
             Write-Host "No previous tag found - this is the first release"
-            $changelog = "### 🎉 Initial Release`n`nFirst official release of Google Drive Downloader!`n`n"
+            $changelog = "#### 🎉 Initial Release`n`nFirst official release of Google Drive Downloader!`n"
           }
           
-          # Escape for GitHub Actions (replace newlines with %0A)
+          # Escape for GitHub Actions
           $changelog = $changelog -replace "`r`n", "%0A" -replace "`n", "%0A"
           echo "content=$changelog" >> $env:GITHUB_OUTPUT
         shell: pwsh
       
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/Google Drive Downloader ${{ steps.package-version.outputs.version }}.exe
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', steps.package-version.outputs.version) || github.ref_name }}
+            dist/Google Drive Downloader ${{ steps.version.outputs.number }}.exe
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', steps.version.outputs.number) || github.ref_name }}
+          name: Google Drive Downloader v${{ steps.version.outputs.number }}
           draft: ${{ github.event_name == 'workflow_dispatch' }}
           prerelease: false
+          fail_on_unmatched_files: true
           body: |
-            ## 📦 Google Drive Downloader v${{ steps.package-version.outputs.version }}
+            ## 📦 Google Drive Downloader v${{ steps.version.outputs.number }}
             
-            A desktop application to automatically download files from **public** Google Drive folders with scheduling capabilities.
-            
-            ### ⬇️ Installation
-            
-            1. Download **`Google Drive Downloader ${{ steps.package-version.outputs.version }}.exe`** below
-            2. Run the executable - **no installation required!**
-            3. If Windows shows a security warning, click **"More info"** → **"Run anyway"**
-            
-            ### ✨ Features
-            
-            - 📁 Download from public Google Drive folders (no authentication needed)
-            - 🖥️ Desktop application with user-friendly interface
-            - ⏰ Automatic scheduling with cron expressions
-            - 📦 Optional automatic ZIP extraction
-            - 🔄 Download all files or just the latest version
-            - 📊 Real-time progress tracking
-            - 📋 Live activity logs
-            - 💾 Persistent configuration
+            A cross-platform desktop application for automatically downloading files from **public** Google Drive folders with scheduling capabilities.
             
             ---
             
-            ## 📝 Changelog
+            ### ⬇️ Download & Installation
+            
+            **Download:** [`Google Drive Downloader ${{ steps.version.outputs.number }}.exe`](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.number }}/Google%20Drive%20Downloader%20${{ steps.version.outputs.number }}.exe) (${{ steps.verify.outputs.file_size }} MB)
+            
+            **SHA256 Checksum:** `${{ steps.checksum.outputs.sha256 }}`
+            
+            #### Installation Steps
+            
+            1. Download the executable above
+            2. Run `Google Drive Downloader ${{ steps.version.outputs.number }}.exe` - **no installation required!**
+            3. If Windows Defender SmartScreen appears, click **"More info"** → **"Run anyway"**
+               - The app is unsigned, which triggers this warning. Your download is safe.
+            
+            ---
+            
+            ### ✨ Key Features
+            
+            - 📁 Download from public Google Drive folders (no authentication required)
+            - 🖥️ Clean, intuitive desktop interface
+            - ⏰ Automated scheduling using cron expressions
+            - 📦 Optional automatic ZIP file extraction
+            - 🔄 Download all files or just the latest version
+            - 📊 Real-time download progress tracking
+            - 📋 Live activity logs with filtering
+            - 💾 Persistent configuration storage
+            - 🔁 Automatic retry on failed downloads
+            - ⚡ Works without Google API keys
+            
+            ---
+            
+            ### 📝 Changelog
             
             ${{ steps.changelog.outputs.content }}
+            ${{ steps.changelog.outputs.previous_tag && format('**Full Changelog:** [{0}...v{1}](https://github.com/{2}/compare/{0}...v{1})', steps.changelog.outputs.previous_tag, steps.version.outputs.number, github.repository) || '' }}
             
             ---
             
-            ### 🐛 Bug Reports & Feature Requests
+            ### 🐛 Issues & Support
             
-            Found an issue or have a suggestion? [Open an issue](https://github.com/robinsone/GoogleDownloader/issues/new)
+            - **Report a Bug:** [Open an issue](https://github.com/${{ github.repository }}/issues/new?labels=bug&template=bug_report.md)
+            - **Request a Feature:** [Open an issue](https://github.com/${{ github.repository }}/issues/new?labels=enhancement&template=feature_request.md)
+            - **Documentation:** [README](https://github.com/${{ github.repository }}#readme)
+            
+            ---
+            
+            <sub>Built with Electron • Node.js • Express • Socket.io</sub>
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Upload artifact for manual testing
-        if: github.event_name == 'workflow_dispatch'
+      - name: Upload build artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: google-drive-downloader-unsigned
-          path: dist/Google Drive Downloader ${{ steps.package-version.outputs.version }}.exe
+          name: google-drive-downloader-v${{ steps.version.outputs.number }}
+          path: dist/Google Drive Downloader ${{ steps.version.outputs.number }}.exe
+          retention-days: 90
+          if-no-files-found: error
