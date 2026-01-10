@@ -107,17 +107,6 @@ Click on **📋 Activity Log** to expand the log viewer and see:
 
 ## Use Cases
 
-### World of Warcraft AddOn Updates
-
-Perfect for automatically updating WoW addons from shared Google Drive folders:
-
-1. Set **Folder ID** to your addon developer's public folder
-2. Set **Destination Path** to `C:\Program Files (x86)\World of Warcraft\_retail_\Interface\AddOns`
-3. Set schedule to check daily: `0 9 * * *`
-4. Enable **Start Scheduler**
-
-Your addons will automatically update every morning!
-
 ### Any Regular File Updates
 
 Use this for any scenario where files are regularly updated in a Google Drive folder:
