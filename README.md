@@ -33,8 +33,9 @@ If you have Node.js installed:
 git clone https://github.com/robinsone/GoogleDownloader.git
 cd GoogleDownloader
 npm install
-npm run electron
+npm run web
 ```
+Then open your browser to `http://localhost:3000`
 
 ## Getting Started
 
