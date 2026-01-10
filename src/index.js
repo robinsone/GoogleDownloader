@@ -12,7 +12,7 @@ const program = new Command();
 program
   .name('gdrive-downloader')
   .description('Google Drive folder downloader with scheduling')
-  .version('1.0.2');
+  .version('1.0.3');
 
 // Setup command
 program
